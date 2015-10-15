@@ -85,7 +85,7 @@ static const char *const xs_libssh2_error[] = {
     "METHOD_NOT_SUPPORTED",
     "INVAL",
     "INVALID_POLL_TYPE",
-	"PUBLICKEY_PROTOCOL",
+    "PUBLICKEY_PROTOCOL",
     "EAGAIN"
 };
 
@@ -747,6 +747,10 @@ croak_last_error(SSH2 *ss, const char *klass, const char *method) {
 
 #define CROAK_LAST_ERROR(session, method) (croak_last_error((session), class, (method)))
 
+#if LIBSSH2_VERSION_NUM < 0x010601
+#define libssh2_session_set_last_error(ss, errcode, errmsg)   0
+#endif
+
 /* perl module exports */
 
 MODULE = Net::SSH2		PACKAGE = Net::SSH2		PREFIX = net_ss_
@@ -895,7 +899,7 @@ net_ss_banner(SSH2* ss, SV* banner)
 PREINIT:
     int success;
     SV* sv_banner;
-CODE:
+PPCODE:
     sv_banner = newSVsv(banner);
     sv_insert(sv_banner, 0/*offset*/, 0/*len*/, "SSH-2.0-", 8);
     success = !libssh2_banner_set(ss->session, SvPV_nolen(sv_banner));
@@ -909,7 +913,7 @@ PREINIT:
     SV *errcode_sv;
     char* errstr;
     int errlen;
-CODE:
+PPCODE:
     errcode = libssh2_session_last_error(ss->session, &errstr, &errlen, 0);
     if(GIMME_V == G_ARRAY) {
         if (errcode == LIBSSH2_ERROR_NONE)
@@ -930,11 +934,7 @@ CODE:
 int
 net_ss__set_error(SSH2 *ss, int errcode = 0, const char *errmsg = NULL)
 CODE:
-#if LIBSSH2_VERSION_NUM >= 0x010601
     RETVAL = libssh2_session_set_last_error(ss->session, errcode, errmsg);
-#else
-    RETVAL = 0;
-#endif
 OUTPUT:
     RETVAL
 
@@ -1044,10 +1044,9 @@ OUTPUT:
 
 void
 net_ss_disconnect(SSH2* ss, const char* description = "", \
- int reason = SSH_DISCONNECT_BY_APPLICATION, const char *lang = "")
+                  int reason = SSH_DISCONNECT_BY_APPLICATION, const char *lang = "")
 CODE:
-    XSRETURN_IV(!libssh2_session_disconnect_ex(
-     ss->session, reason, description, lang));
+    XSRETURN_IV(!libssh2_session_disconnect_ex(ss->session, reason, description, lang));
 
 void
 net_ss_hostkey_hash(SSH2* ss, SV* hash_type)
@@ -1733,16 +1732,17 @@ CODE:
                                          len_buffer - offset);
         if (count >= 0)
             offset += count;
-        else if (!((count == LIBSSH2_ERROR_EAGAIN) &&
-                   libssh2_session_get_blocking(ch->ss->session)))
+        else if ((count != LIBSSH2_ERROR_EAGAIN) ||
+                 !libssh2_session_get_blocking(ch->ss->session))
             break;
     }
     if (offset || (count == 0)) /* yes, zero is a valid value */
         RETVAL = newSVuv(offset);
-    else if (count ==  LIBSSH2_ERROR_EAGAIN)
-        RETVAL = newSViv(LIBSSH2_ERROR_EAGAIN);
-    else
+    else {
+        if (count == LIBSSH2_ERROR_EAGAIN)
+            libssh2_session_set_last_error(ch->ss->session, LIBSSH2_ERROR_EAGAIN, "Operation would block");
         RETVAL = &PL_sv_undef;
+    }
 OUTPUT:
     RETVAL
 
