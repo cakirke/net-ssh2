@@ -269,8 +269,9 @@ sub connect {
             carp "passing options to connect is deprectated";
         $self->timeout($opts{Timeout}) if $opts{Timeout};
         if ($opts{Compress} and
-            $self->version)[1] > 0x10500) {
-        $self->flag(COMPRESS => 1);
+            ($self->version)[1] >= 0x10500) {
+            $self->flag(COMPRESS => 1);
+        }
     }
 
     if (@_ == 2) {
