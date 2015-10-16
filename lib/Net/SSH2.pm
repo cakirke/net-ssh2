@@ -234,7 +234,7 @@ sub new {
         $self->$_($opts{$_}) if defined $opts{$_}
     }
     $self->flag(COMPRESS => $opts{compress})
-        if defined $opts{compress} and (version)[1] >= 0x10500;
+        if defined $opts{compress} and (version())[1] >= 0x10500;
     $self->flag(SIGPIPE => $opts{sigpipe})
         if defined $opts{sigpipe};
 
@@ -282,7 +282,7 @@ sub connect {
                                     Blocking => $blocking,
                                     Timeout => $timeout );
         unless ($sock) {
-            $self->_set_error(LIBSSH2_ERROR_SOCKET_NONE, "Unable to connect to remote host: $!");
+            $self->_set_error(LIBSSH2_ERROR_SOCKET_NONE(), "Unable to connect to remote host: $!");
             goto error;
         }
 
@@ -293,7 +293,7 @@ sub connect {
     unless (defined $fd) {
         $fd = fileno($sock);
         unless (defined $fd) {
-            $self->_set_error(LIBSSH2_ERROR_SOCKET_NONE, "Unable to get file descriptor from socket: $!");
+            $self->_set_error(LIBSSH2_ERROR_SOCKET_NONE(), "Unable to get file descriptor from socket: $!");
             goto error;
         }
     }
