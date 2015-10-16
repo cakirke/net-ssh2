@@ -230,7 +230,7 @@ sub new {
     my ($class, %opts) = @_;
     my $self = $class->_new;
 
-    for qw(trace timeout) {
+    for (qw(trace timeout)) {
         $self->$_($opts{$_}) if defined $opts{$_}
     }
     $self->flag(COMPRESS => $opts{compress})
